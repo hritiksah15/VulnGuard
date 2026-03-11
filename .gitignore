@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Environment variables
+.env
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# MongoDB data
+data/db/
+
+# Downloaded datasets (re-downloadable)
+backend/data/*.json
+
+# Node.js (frontend)
+node_modules/
+.angular/
+dist/
+
+# Test outputs
+coverage/
+.nyc_output/
+newman/
+
+# Logs
+*.log
+logs/
