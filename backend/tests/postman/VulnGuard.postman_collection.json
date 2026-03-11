@@ -1,0 +1,3456 @@
+{
+  "info": {
+    "name": "VulnGuard API Tests",
+    "description": "Comprehensive API test collection for VulnGuard vulnerability tracking platform.\n\nCovers 81 endpoints with positive and negative test cases, including advanced filters ($in, $regex, $or), cursor-based pagination, geospatial queries ($geoNear), token blacklisting, $out aggregation, and bulk insert_many operations.\n\n**Seeded-data only** — starts from login (no registration). All user accounts come from the seed script.\n\nEvery request includes a Markdown description documenting purpose and expected outcome.\n\nModule: COM661 – Full Stack Strategies and Development",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const baseUrl = pm.environment.get('base_url');",
+          "const requestName = pm.info.requestName.toLowerCase();",
+          "",
+          "let tokenKey = 'admin_token';",
+          "let email = pm.environment.get('admin_email');",
+          "let password = pm.environment.get('admin_password');",
+          "",
+          "if (requestName.includes('analyst')) {",
+          "    tokenKey = 'analyst_token';",
+          "    email = pm.environment.get('analyst_email');",
+          "    password = pm.environment.get('analyst_password');",
+          "} else if (requestName.includes('guest')) {",
+          "    tokenKey = 'guest_token';",
+          "    email = pm.environment.get('guest_email');",
+          "    password = pm.environment.get('guest_password');",
+          "}",
+          "",
+          "const isAuthEndpoint = pm.request.url.toString().includes('/auth/login') ||",
+          "                       pm.request.url.toString().includes('/auth/register');",
+          "",
+          "if (!isAuthEndpoint) {",
+          "    const currentToken = pm.environment.get(tokenKey);",
+          "    let needsRefresh = !currentToken;",
+          "",
+          "    if (currentToken && !needsRefresh) {",
+          "        try {",
+          "            const payload = JSON.parse(atob(currentToken.split('.')[1]));",
+          "            const expiry = payload.exp * 1000;",
+          "            needsRefresh = Date.now() >= expiry - 60000;",
+          "        } catch (e) {",
+          "            needsRefresh = true;",
+          "        }",
+          "    }",
+          "",
+          "    if (needsRefresh) {",
+          "        pm.sendRequest({",
+          "            url: `${baseUrl}/auth/login`,",
+          "            method: 'POST',",
+          "            header: { 'Content-Type': 'application/json' },",
+          "            body: {",
+          "                mode: 'raw',",
+          "                raw: JSON.stringify({ email: email, password: password })",
+          "            }",
+          "        }, function (err, response) {",
+          "            if (!err && response.code === 200) {",
+          "                const token = response.json().data.token;",
+          "                pm.environment.set(tokenKey, token);",
+          "                console.log(`Token refreshed: ${tokenKey}`);",
+          "            } else {",
+          "                console.error(`Failed to refresh ${tokenKey}:`, err || response.json());",
+          "            }",
+          "        });",
+          "    }",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Environment Setup",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Verify the API server is running and responding.\n\n**Expects:** `200 OK` with `status: success`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('API is running', function () {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.status).to.equal('success');",
+                  "    pm.expect(res.message).to.include('running');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Admin – Get Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticate as the admin user and store the JWT token in `admin_token` environment variable.\n\n**Expects:** `200 OK` with `data.token`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Token received', function () {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.data.token).to.be.a('string');",
+                  "    pm.environment.set('admin_token', res.data.token);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Analyst – Get Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{analyst_email}}\",\n  \"password\": \"{{analyst_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticate as the analyst user and store the JWT token in `analyst_token`.\n\n**Expects:** `200 OK` with `data.token`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Token received', function () {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.data.token).to.be.a('string');",
+                  "    pm.environment.set('analyst_token', res.data.token);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Guest – Get Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{guest_email}}\",\n  \"password\": \"{{guest_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticate as the guest user and store the JWT token in `guest_token`.\n\n**Expects:** `200 OK` with `data.token`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Token received', function () {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.data.token).to.be.a('string');",
+                  "    pm.environment.set('guest_token', res.data.token);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login – Valid Credentials (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticate with valid admin credentials.\n\n**Expects:** `200 OK` with JWT token containing `user_id`, `username`, `role`, `exp`, `iat`, `jti`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Login response has token and user', function () {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.status).to.equal('success');",
+                  "    pm.expect(res.data).to.have.property('token');",
+                  "    pm.expect(res.data.user).to.have.property('role', 'admin');",
+                  "    pm.environment.set('admin_token', res.data.token);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login – Invalid Password (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"WrongPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Attempt login with an incorrect password.\n\n**Expects:** `401 Unauthorized`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('Error message', function () {",
+                  "    pm.expect(pm.response.json().message).to.include('Invalid');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login – Non-existent Email (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nobody@nowhere.com\",\n  \"password\": \"Test@123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Attempt login with an email that does not exist in the database.\n\n**Expects:** `401 Unauthorized`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('Error message', function () {",
+                  "    pm.expect(pm.response.json().status).to.equal('error');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Profile – Authenticated (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "profile"
+              ]
+            },
+            "description": "Fetch the current user's profile using `x-access-token` header.\n\n**Expects:** `200 OK` with user details."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Profile has user data', function () {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.data).to.have.property('username');",
+                  "    pm.expect(res.data).to.have.property('email');",
+                  "    pm.expect(res.data).to.have.property('role');",
+                  "    pm.expect(res.data).to.not.have.property('password_hash');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Profile – No Token (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "profile"
+              ]
+            },
+            "description": "Attempt to access profile without providing any authentication token.\n\n**Expects:** `401 Unauthorized`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('Auth error message', function () {",
+                  "    pm.expect(pm.response.json().message).to.include('token');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "Obtain a new JWT token before the current one expires.\n\n**Method:** `POST /auth/refresh`\n**Expects:** `200 OK` with new token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('New token received', function () {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.data).to.have.property('token');",
+                  "    pm.environment.set('admin_token', res.data.token);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change Password – Wrong Current (400)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"WrongPassword!\",\n  \"new_password\": \"New@Secure123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/change-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "change-password"
+              ]
+            },
+            "description": "Attempt password change with incorrect current password.\n\n**Expects:** `400 Bad Request`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('Error about incorrect password', function () {",
+                  "    pm.expect(pm.response.json().message).to.include('incorrect');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Profile via x-access-token (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "profile"
+              ]
+            },
+            "description": "Fetch user profile using the `x-access-token` header as the standard authentication header.\n\nUses the `x-access-token` header as specified by the coursework.\n\n**Expects:** `200 OK` with `data.username`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Body has username', function () {",
+                  "    pm.expect(pm.response.json().data).to.have.property('username');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout – Valid Token (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Invalidate the current JWT by adding it to the `blacklist` MongoDB collection.\n\n**Method:** `POST /auth/logout`\n**Expects:** `200 OK` — token is now blacklisted.\n\nThe blacklisted token is saved for the next test."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Logged out message', function () {",
+                  "    pm.expect(pm.response.json().message).to.include('Logged out');",
+                  "});",
+                  "// Save the now-blacklisted token for next test",
+                  "pm.environment.set('blacklisted_token', pm.request.headers.get('x-access-token'));",
+                  "// Force token refresh on next request",
+                  "pm.environment.unset('admin_token');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Profile – Blacklisted Token (401)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{blacklisted_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "profile"
+              ]
+            },
+            "description": "Attempt to access a protected endpoint with a token that has been blacklisted via logout.\n\n**Expects:** `401 Unauthorized` — \"Token has been cancelled\"."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('Token cancelled message', function () {",
+                  "    pm.expect(pm.response.json().message).to.include('cancelled');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Vulnerability CRUD",
+      "item": [
+        {
+          "name": "Create Vulnerability – Valid (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vulnerability_title\": \"SQL Injection in Login Form - Test\",\n  \"description\": \"The login form is vulnerable to SQL injection through the username field, allowing authentication bypass.\",\n  \"cve_id\": \"CVE-2026-99001\",\n  \"severity\": \"Critical\",\n  \"status\": \"Open\",\n  \"cvss_score\": 9.8,\n  \"asset_name\": \"web-app-01.example.com\",\n  \"asset_type\": \"Application\",\n  \"vulnerability_type\": \"Software\",\n  \"discovery_method\": \"Scan\",\n  \"department\": \"Engineering\",\n  \"affected_versions\": [\"2.1.0\", \"2.1.1\"],\n  \"attack_vector\": \"Network\",\n  \"exploitability\": \"Functional\",\n  \"patch_due_date\": \"2026-04-15T00:00:00Z\",\n  \"assigned_to\": \"j.smith\",\n  \"reported_by\": \"security-scanner\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities"
+              ]
+            },
+            "description": "Create a new vulnerability with all required fields (vulnerability_title, description, severity, status, cvss_score, asset_name, asset_type, vulnerability_type, discovery_method, department, reported_by).\n\n**Method:** `POST /vulnerabilities/`\n**Expects:** `201 Created` with the full document including `_id`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () { pm.response.to.have.status(201); });",
+                  "pm.test('Vulnerability created with all fields', function () {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.status).to.equal('success');",
+                  "    pm.expect(res.data).to.have.property('_id');",
+                  "    pm.expect(res.data.vulnerability_title).to.include('SQL Injection');",
+                  "    pm.expect(res.data.severity).to.equal('Critical');",
+                  "    pm.expect(res.data.cvss_score).to.equal(9.8);",
+                  "    pm.expect(res.data).to.have.property('risk_score');",
+                  "    pm.environment.set('test_vuln_id', res.data._id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Vulnerability – Missing Required Fields (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vulnerability_title\": \"Incomplete\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities"
+              ]
+            },
+            "description": "Submit vulnerability creation with missing required fields.\n\n**Expects:** `400 Bad Request` with detailed field-level error messages."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Validation error message', function () {",
+                  "    pm.expect(pm.response.json().status).to.equal('error');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Vulnerability – Invalid CVSS Score (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vulnerability_title\": \"Test Invalid CVSS\",\n  \"description\": \"Testing invalid CVSS score value\",\n  \"severity\": \"High\",\n  \"status\": \"Open\",\n  \"cvss_score\": 15.5,\n  \"asset_name\": \"test-server\",\n  \"asset_type\": \"Server\",\n  \"vulnerability_type\": \"Software\",\n  \"discovery_method\": \"Scan\",\n  \"department\": \"IT\",\n  \"reported_by\": \"tester\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities"
+              ]
+            },
+            "description": "Submit a vulnerability with `cvss_score` outside the valid 0–10 range.\n\n**Expects:** `422 Unprocessable Entity`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('CVSS validation error', function () {",
+                  "    pm.expect(pm.response.json().message).to.include('cvss_score');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Vulnerability – Invalid Severity Enum (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vulnerability_title\": \"Test Invalid Severity\",\n  \"description\": \"Testing invalid severity enum value\",\n  \"severity\": \"Ultra\",\n  \"status\": \"Open\",\n  \"cvss_score\": 7.0,\n  \"asset_name\": \"test-server\",\n  \"asset_type\": \"Server\",\n  \"vulnerability_type\": \"Software\",\n  \"discovery_method\": \"Scan\",\n  \"department\": \"IT\",\n  \"reported_by\": \"tester\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities"
+              ]
+            },
+            "description": "Submit a vulnerability with an invalid `severity` value (not in Critical/High/Medium/Low/Informational).\n\n**Expects:** `422 Unprocessable Entity`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Severity validation error', function () {",
+                  "    pm.expect(pm.response.json().message).to.include('severity');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Vulnerability – No Auth Token (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vulnerability_title\": \"No Auth Test\",\n  \"description\": \"Should fail without token\",\n  \"severity\": \"Low\",\n  \"status\": \"Open\",\n  \"cvss_score\": 2.0,\n  \"asset_name\": \"test\",\n  \"asset_type\": \"Server\",\n  \"vulnerability_type\": \"Software\",\n  \"discovery_method\": \"Scan\",\n  \"department\": \"IT\",\n  \"reported_by\": \"tester\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities"
+              ]
+            },
+            "description": "Attempt vulnerability creation without any authentication token.\n\n**Expects:** `401 Unauthorized`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Vulnerability – Guest Role (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{guest_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vulnerability_title\": \"Guest Cannot Create\",\n  \"description\": \"Guest role should be forbidden\",\n  \"severity\": \"Low\",\n  \"status\": \"Open\",\n  \"cvss_score\": 2.0,\n  \"asset_name\": \"test\",\n  \"asset_type\": \"Server\",\n  \"vulnerability_type\": \"Software\",\n  \"discovery_method\": \"Scan\",\n  \"department\": \"IT\",\n  \"reported_by\": \"tester\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities"
+              ]
+            },
+            "description": "Attempt vulnerability creation as a guest user (insufficient permissions).\n\n**Expects:** `403 Forbidden` — RBAC rejects guest role."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 403', function () { pm.response.to.have.status(403); });",
+                  "pm.test('Permission denied', function () {",
+                  "    pm.expect(pm.response.json().message).to.include('permission');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get All Vulnerabilities – No Filter (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities?page=1&per_page=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "per_page",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Retrieve vulnerabilities using default pagination (skip/limit).\n\n**Method:** `GET /vulnerabilities/`\n**Expects:** `200 OK` with `data` array and `pagination` metadata."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response has pagination', function () {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.status).to.equal('success');",
+                  "    pm.expect(res.data).to.be.an('array');",
+                  "    pm.expect(res.pagination).to.have.property('page');",
+                  "    pm.expect(res.pagination).to.have.property('per_page');",
+                  "    pm.expect(res.pagination).to.have.property('total');",
+                  "    pm.expect(res.pagination).to.have.property('pages');",
+                  "    pm.expect(res.data.length).to.be.at.most(res.pagination.per_page);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get All Vulnerabilities – Filter by Severity (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities?severity=Critical",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities"
+              ],
+              "query": [
+                {
+                  "key": "severity",
+                  "value": "Critical"
+                }
+              ]
+            },
+            "description": "Filter vulnerabilities using exact-match `severity` query parameter.\n\n**Expects:** `200 OK` — all results match the specified severity."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('All results are Critical', function () {",
+                  "    pm.response.json().data.forEach(v => pm.expect(v.severity).to.equal('Critical'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get All Vulnerabilities – Sort by CVSS Descending (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities?sort_by=cvss_score&sort_order=desc&per_page=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities"
+              ],
+              "query": [
+                {
+                  "key": "sort_by",
+                  "value": "cvss_score"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "desc"
+                },
+                {
+                  "key": "per_page",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Retrieve vulnerabilities sorted by `cvss_score` in descending order.\n\n**Expects:** `200 OK` — results ordered highest CVSS first."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Sorted by CVSS descending', function () {",
+                  "    const data = pm.response.json().data;",
+                  "    for (let i = 1; i < data.length; i++) {",
+                  "        pm.expect(data[i - 1].cvss_score).to.be.at.least(data[i].cvss_score);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get All Vulnerabilities – Text Search (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities?search=SQL+injection",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "SQL injection"
+                }
+              ]
+            },
+            "description": "Use MongoDB `$text` search via the `search` query parameter.\n\n**Expects:** `200 OK` — results matching the search terms."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Search returns results', function () {",
+                  "    pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get All Vulnerabilities – Pagination Page 2 (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities?page=2&per_page=5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "2"
+                },
+                {
+                  "key": "per_page",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Test skip/limit offset pagination by requesting `page=2`.\n\n**Expects:** `200 OK` with `pagination.page: 2`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Page 2 returned', function () {",
+                  "    pm.expect(pm.response.json().pagination.page).to.equal(2);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Single Vulnerability – Valid ID (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}"
+              ]
+            },
+            "description": "Fetch a single vulnerability by its ObjectId.\n\n**Method:** `GET /vulnerabilities/:id`\n**Expects:** `200 OK` with full document."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Vulnerability has required fields', function () {",
+                  "    const v = pm.response.json().data;",
+                  "    pm.expect(v).to.have.property('_id');",
+                  "    pm.expect(v).to.have.property('vulnerability_title');",
+                  "    pm.expect(v).to.have.property('severity');",
+                  "    pm.expect(v).to.have.property('status');",
+                  "    pm.expect(v).to.have.property('cvss_score');",
+                  "    pm.expect(v).to.have.property('remediation_steps');",
+                  "    pm.expect(v).to.have.property('activity_log');",
+                  "    pm.expect(v.remediation_steps).to.be.an('array');",
+                  "    pm.expect(v.activity_log).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Single Vulnerability – Invalid ID Format (422)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/invalid-id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "invalid-id"
+              ]
+            },
+            "description": "Request a vulnerability with a malformed ObjectId string.\n\n**Expects:** `422 Unprocessable Entity` — ObjectId validation."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('ObjectId error', function () {",
+                  "    pm.expect(pm.response.json().message).to.include('ObjectId');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Single Vulnerability – Non-existent ID (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/000000000000000000000000",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "000000000000000000000000"
+              ]
+            },
+            "description": "Request a vulnerability with a valid but non-existent ObjectId.\n\n**Expects:** `404 Not Found`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Vulnerability – Valid (200)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"In Progress\",\n  \"assigned_to\": \"a.jones\",\n  \"cvss_score\": 9.5\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}"
+              ]
+            },
+            "description": "Partial update of a vulnerability (e.g., change severity or status).\n\n**Method:** `PUT /vulnerabilities/:id`\n**Expects:** `200 OK` with updated document."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Fields updated', function () {",
+                  "    const v = pm.response.json().data;",
+                  "    pm.expect(v.status).to.equal('In Progress');",
+                  "    pm.expect(v.assigned_to).to.equal('a.jones');",
+                  "    pm.expect(v.cvss_score).to.equal(9.5);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Vulnerability – Invalid CVSS (422)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cvss_score\": 15.0\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}"
+              ]
+            },
+            "description": "Attempt update with invalid `cvss_score`.\n\n**Expects:** `422 Unprocessable Entity`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Vulnerability – Analyst Forbidden (403)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{analyst_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}"
+              ]
+            },
+            "description": "Attempt deletion as analyst user. Only admins can delete.\n\n**Expects:** `403 Forbidden` — RBAC enforcement."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Vulnerabilities – severity_in Filter (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/?severity_in=Critical,High&per_page=5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities"
+              ],
+              "query": [
+                { "key": "severity_in", "value": "Critical,High" },
+                { "key": "per_page", "value": "5" }
+              ]
+            },
+            "description": "Filter using MongoDB `$in` operator via `severity_in=Critical,High` query parameter.\n\nReturn only vulnerabilities whose severity is one of the comma-separated values.\n\n**Expects:** `200 OK` — all results have severity Critical or High."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('All results are Critical or High', function () {",
+                  "    const items = pm.response.json().data;",
+                  "    items.forEach(i => pm.expect(['Critical','High']).to.include(i.severity));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Vulnerabilities – status_in Filter (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/?status_in=Open,In%20Progress&per_page=5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities"
+              ],
+              "query": [
+                { "key": "status_in", "value": "Open,In Progress" },
+                { "key": "per_page", "value": "5" }
+              ]
+            },
+            "description": "Filter using MongoDB `$in` operator via `status_in=Open,In Progress` query parameter.\n\n**Expects:** `200 OK` — all results have matching status."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('All results match status filter', function () {",
+                  "    const items = pm.response.json().data;",
+                  "    items.forEach(i => pm.expect(['Open','In Progress']).to.include(i.status));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Vulnerabilities – title_regex Filter (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/?title_regex=SQL.*Injection",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities"
+              ],
+              "query": [
+                { "key": "title_regex", "value": "SQL.*Injection" }
+              ]
+            },
+            "description": "Filter using MongoDB `$regex` operator via `title_regex=SQL.*Injection` query parameter.\n\nCase-insensitive regex matching on the `vulnerability_title` field.\n\n**Expects:** `200 OK` — all titles match the pattern."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Title contains SQL Injection', function () {",
+                  "    const items = pm.response.json().data;",
+                  "    pm.expect(items.length).to.be.above(0);",
+                  "    items.forEach(i => pm.expect(i.vulnerability_title).to.match(/SQL.*Injection/i));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Vulnerabilities – Cursor Pagination (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/?per_page=3&sort_order=desc",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities"
+              ],
+              "query": [
+                { "key": "per_page", "value": "3" },
+                { "key": "sort_order", "value": "desc" }
+              ]
+            },
+            "description": "Retrieve first page using cursor-based (keyset) pagination with `sort_order=desc`.\n\nSaves the last `_id` for the next-page test.\n\n**Expects:** `200 OK` with `pagination` metadata."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Has pagination fields', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('pagination');",
+                  "});",
+                  "// Save last id for next page test",
+                  "const items = pm.response.json().data;",
+                  "if (items.length > 0) {",
+                  "    pm.environment.set('cursor_after', items[items.length - 1]._id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Vulnerabilities – Cursor Page 2 (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/?per_page=3&sort_order=desc&after={{cursor_after}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities"
+              ],
+              "query": [
+                { "key": "per_page", "value": "3" },
+                { "key": "sort_order", "value": "desc" },
+                { "key": "after", "value": "{{cursor_after}}" }
+              ]
+            },
+            "description": "Fetch the next page of results using the `after` parameter (keyset pagination).\n\nUses the `_id` saved from the previous request. No duplicate documents across pages.\n\n**Expects:** `200 OK` with `pagination.next_after`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Has next_after in response', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.pagination).to.have.property('next_after');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Nearby Vulnerabilities – Belfast (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/nearby?lng=-5.93&lat=54.60&radius=5000&limit=5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "nearby"
+              ],
+              "query": [
+                { "key": "lng", "value": "-5.93" },
+                { "key": "lat", "value": "54.60" },
+                { "key": "radius", "value": "5000" },
+                { "key": "limit", "value": "5" }
+              ]
+            },
+            "description": "Find vulnerabilities near Belfast (lat 54.60, lng -5.93) using the `$geoNear` aggregation stage.\n\nRequires a `2dsphere` index on `vulnerabilities.location`.\n\n**Expects:** `200 OK` — results include `distance_km` field."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Results have distance_km', function () {",
+                  "    const items = pm.response.json().data;",
+                  "    pm.expect(items.length).to.be.above(0);",
+                  "    items.forEach(i => pm.expect(i).to.have.property('distance_km'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Nearby Vulnerabilities – Missing Params (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/nearby?lng=-5.93",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "nearby"
+              ],
+              "query": [
+                { "key": "lng", "value": "-5.93" }
+              ]
+            },
+            "description": "Call the `/nearby` endpoint without the required `lat` parameter.\n\n**Expects:** `400 Bad Request` — parameter validation."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('Error message present', function () {",
+                  "    pm.expect(pm.response.json().message).to.include('lat');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bulk Create Vulnerabilities – Valid (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/bulk",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "bulk"
+              ]
+            },
+            "description": "Create multiple vulnerabilities in a single request using MongoDB `insert_many`.\n\nAccepts a `vulnerabilities` array (2–50 items). Each item is validated individually; if any fail the entire batch is rejected.\n\n**Method:** `POST /vulnerabilities/bulk`\n**Expects:** `201 Created` with all created documents.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vulnerabilities\": [\n    {\n      \"vulnerability_title\": \"Bulk Test Vuln Alpha\",\n      \"description\": \"First bulk-created vulnerability for testing insert_many.\",\n      \"severity\": \"High\",\n      \"status\": \"Open\",\n      \"cvss_score\": 8.1,\n      \"asset_name\": \"bulk-server-01\",\n      \"asset_type\": \"Server\",\n      \"vulnerability_type\": \"Software\",\n      \"discovery_method\": \"Scan\",\n      \"department\": \"Engineering\",\n      \"reported_by\": \"bulk-test\"\n    },\n    {\n      \"vulnerability_title\": \"Bulk Test Vuln Beta\",\n      \"description\": \"Second bulk-created vulnerability for testing insert_many.\",\n      \"severity\": \"Medium\",\n      \"status\": \"Open\",\n      \"cvss_score\": 5.5,\n      \"asset_name\": \"bulk-server-02\",\n      \"asset_type\": \"Server\",\n      \"vulnerability_type\": \"Software\",\n      \"discovery_method\": \"Scan\",\n      \"department\": \"Engineering\",\n      \"reported_by\": \"bulk-test\"\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () { pm.response.to.have.status(201); });",
+                  "pm.test('Bulk create returned documents', function () {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.data).to.be.an('array');",
+                  "    pm.expect(res.data.length).to.equal(2);",
+                  "    pm.expect(res.message).to.include('2');",
+                  "",
+                  "    // Save IDs for cleanup",
+                  "    const ids = res.data.map(d => d._id);",
+                  "    pm.environment.set('bulk_vuln_ids', JSON.stringify(ids));",
+                  "    console.log('Saved bulk_vuln_ids:', ids);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bulk Create – Too Few Items (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/bulk",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "bulk"
+              ]
+            },
+            "description": "Attempt bulk creation with only 1 item (minimum is 2).\n\n**Expects:** `400 Bad Request`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vulnerabilities\": [\n    {\n      \"vulnerability_title\": \"Only One Item\",\n      \"description\": \"This should fail because minimum is 2.\",\n      \"severity\": \"Low\",\n      \"status\": \"Open\",\n      \"cvss_score\": 2.0,\n      \"asset_name\": \"test-srv\",\n      \"asset_type\": \"Server\",\n      \"department\": \"IT\",\n      \"reported_by\": \"tester\"\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('Error message about minimum', function () {",
+                  "    pm.expect(pm.response.json().message).to.include('at least 2');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bulk Create – Validation Error (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/bulk",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "bulk"
+              ]
+            },
+            "description": "Attempt bulk creation where one item passes validation but another fails.\n\nThe entire batch is rejected.\n\n**Expects:** `422 Unprocessable Entity` with per-item errors.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vulnerabilities\": [\n    {\n      \"vulnerability_title\": \"Good One\",\n      \"description\": \"Valid description here.\",\n      \"severity\": \"High\",\n      \"status\": \"Open\",\n      \"cvss_score\": 7.0,\n      \"asset_name\": \"srv\",\n      \"asset_type\": \"Server\",\n      \"department\": \"IT\",\n      \"reported_by\": \"t\"\n    },\n    {\n      \"vulnerability_title\": \"Bad\",\n      \"description\": \"Missing fields\"\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Has per-item errors', function () {",
+                  "    pm.expect(pm.response.json()).to.have.property('errors');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bulk Create – Guest Forbidden (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{guest_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/bulk",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "bulk"
+              ]
+            },
+            "description": "Attempt bulk creation as guest user.\n\n**Expects:** `403 Forbidden` — RBAC enforcement.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vulnerabilities\": [\n    {\n      \"vulnerability_title\": \"a\"\n    },\n    {\n      \"vulnerability_title\": \"b\"\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Vulnerabilities – $or Filter (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/?or_severity=Critical&or_status=Open&per_page=5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities"
+              ],
+              "query": [
+                { "key": "or_severity", "value": "Critical" },
+                { "key": "or_status", "value": "Open" },
+                { "key": "per_page", "value": "5" }
+              ]
+            },
+            "description": "Filter using MongoDB `$or` operator: returns vulnerabilities where severity=Critical **OR** status=Open.\n\nDemonstrates combined `$or` query construction.\n\n**Expects:** `200 OK` with matching results."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Results match $or condition', function () {",
+                  "    const items = pm.response.json().data;",
+                  "    pm.expect(items.length).to.be.above(0);",
+                  "    items.forEach(i => {",
+                  "        const match = i.severity === 'Critical' || i.status === 'Open';",
+                  "        pm.expect(match).to.be.true;",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Remediation Steps (Sub-Document CRUD)",
+      "item": [
+        {
+          "name": "Add Remediation Step – Valid (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_number\": 1,\n  \"step_description\": \"Apply parameterised queries to all database interactions in the login module\",\n  \"recommended_by\": \"j.smith\",\n  \"status\": \"Pending\",\n  \"due_date\": \"2026-04-08T00:00:00Z\",\n  \"notes\": \"Requires code review after implementation\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}/remediation-steps",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}",
+                "remediation-steps"
+              ]
+            },
+            "description": "Add a remediation step sub-document using `$push` to the vulnerability's `remediation_steps` array.\n\n**Method:** `POST /vulnerabilities/:id/remediation-steps`\n**Expects:** `201 Created`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () { pm.response.to.have.status(201); });",
+                  "pm.test('Step created with fields', function () {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.data).to.have.property('_id');",
+                  "    pm.expect(res.data.step_number).to.equal(1);",
+                  "    pm.expect(res.data.status).to.equal('Pending');",
+                  "    pm.environment.set('test_step_id', res.data._id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add Remediation Step – Missing Required (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Missing action and step_number\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}/remediation-steps",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}",
+                "remediation-steps"
+              ]
+            },
+            "description": "Attempt to add a remediation step with missing required fields.\n\n**Expects:** `422 Unprocessable Entity`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add Remediation Step – No Auth (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_number\": 2,\n  \"step_description\": \"No auth test\",\n  \"status\": \"Pending\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}/remediation-steps",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}",
+                "remediation-steps"
+              ]
+            },
+            "description": "Attempt to add a remediation step without authentication.\n\n**Expects:** `401 Unauthorized`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get All Remediation Steps (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}/remediation-steps",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}",
+                "remediation-steps"
+              ]
+            },
+            "description": "Retrieve all remediation steps for a vulnerability.\n\n**Expects:** `200 OK` with `data` array of sub-documents."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Returns array of steps', function () {",
+                  "    pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Single Remediation Step – Valid (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}/remediation-steps/{{test_step_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}",
+                "remediation-steps",
+                "{{test_step_id}}"
+              ]
+            },
+            "description": "Retrieve a single remediation step using positional `$` operator.\n\n**Expects:** `200 OK` with matching sub-document."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Step has correct fields', function () {",
+                  "    const s = pm.response.json().data;",
+                  "    pm.expect(s).to.have.property('_id');",
+                  "    pm.expect(s).to.have.property('step_number');",
+                  "    pm.expect(s).to.have.property('step_description');",
+                  "    pm.expect(s).to.have.property('status');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Remediation Step – Valid (200)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"In Progress\",\n  \"notes\": \"Work started on this step\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}/remediation-steps/{{test_step_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}",
+                "remediation-steps",
+                "{{test_step_id}}"
+              ]
+            },
+            "description": "Update a remediation step sub-document using positional `$` update.\n\n**Expects:** `200 OK`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Step updated', function () {",
+                  "    pm.expect(pm.response.json().data.status).to.equal('In Progress');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Remediation Step – Mark Completed (200)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{analyst_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Completed\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}/remediation-steps/{{test_step_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}",
+                "remediation-steps",
+                "{{test_step_id}}"
+              ]
+            },
+            "description": "Mark a remediation step as completed by updating its `status` field.\n\n**Expects:** `200 OK`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Completed with date', function () {",
+                  "    const s = pm.response.json().data;",
+                  "    pm.expect(s.status).to.equal('Completed');",
+                  "    pm.expect(s.completed_date).to.not.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Remediation Step – Valid (204)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}/remediation-steps/{{test_step_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}",
+                "remediation-steps",
+                "{{test_step_id}}"
+              ]
+            },
+            "description": "Remove a remediation step sub-document using `$pull`.\n\n**Method:** `DELETE /vulnerabilities/:id/remediation-steps/:sid`\n**Expects:** `204 No Content`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 204', function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Activity Log (Sub-Document CRUD)",
+      "item": [
+        {
+          "name": "Add Activity Log Entry – Valid (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"Status changed\",\n  \"details\": \"Vulnerability status updated from Open to In Progress\",\n  \"previous_value\": \"Open\",\n  \"new_value\": \"In Progress\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}/activity-log",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}",
+                "activity-log"
+              ]
+            },
+            "description": "Add an activity log sub-document to a vulnerability using `$push`.\n\n**Method:** `POST /vulnerabilities/:id/activity-log`\n**Expects:** `201 Created`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () { pm.response.to.have.status(201); });",
+                  "pm.test('Log entry created', function () {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.data).to.have.property('_id');",
+                  "    pm.expect(res.data).to.have.property('performed_at');",
+                  "    pm.expect(res.data).to.have.property('performed_by');",
+                  "    pm.expect(res.data.action).to.equal('Status changed');",
+                  "    pm.environment.set('test_log_id', res.data._id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add Activity Log Entry – Missing Fields (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"details\": \"Missing action field\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}/activity-log",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}",
+                "activity-log"
+              ]
+            },
+            "description": "Attempt to add an activity log entry with missing required fields.\n\n**Expects:** `422 Unprocessable Entity`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add Activity Log Entry – No Auth (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"No auth test\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}/activity-log",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}",
+                "activity-log"
+              ]
+            },
+            "description": "Attempt to add an activity log entry without authentication.\n\n**Expects:** `401 Unauthorized`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get All Activity Log Entries (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}/activity-log",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}",
+                "activity-log"
+              ]
+            },
+            "description": "Retrieve all activity log entries for a vulnerability.\n\n**Expects:** `200 OK` with `data` array."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Returns array', function () {",
+                  "    pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Single Activity Log Entry (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}/activity-log/{{test_log_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}",
+                "activity-log",
+                "{{test_log_id}}"
+              ]
+            },
+            "description": "Retrieve a single activity log entry from the sub-document array.\n\n**Expects:** `200 OK`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Log has fields', function () {",
+                  "    const d = pm.response.json().data;",
+                  "    pm.expect(d).to.have.property('action');",
+                  "    pm.expect(d).to.have.property('performed_at');",
+                  "    pm.expect(d).to.have.property('performed_by');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Activity Log Entry – Analyst Forbidden (403)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{analyst_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}/activity-log/{{test_log_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}",
+                "activity-log",
+                "{{test_log_id}}"
+              ]
+            },
+            "description": "Attempt log entry deletion as analyst. Only admins can delete.\n\n**Expects:** `403 Forbidden`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Activity Log Entry – Admin (204)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}/activity-log/{{test_log_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}",
+                "activity-log",
+                "{{test_log_id}}"
+              ]
+            },
+            "description": "Delete an activity log entry as admin using `$pull`.\n\n**Expects:** `204 No Content`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 204', function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Severity Distribution (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/analytics/severity-distribution",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "severity-distribution"
+              ]
+            },
+            "description": "Aggregation pipeline: `$group` by severity, `$project` count and percentage, `$sort`.\n\nReturns the distribution of vulnerabilities across severity levels.\n\n**Expects:** `200 OK`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Returns severity groups', function () {",
+                  "    const data = pm.response.json().data;",
+                  "    pm.expect(data).to.be.an('array');",
+                  "    data.forEach(d => {",
+                  "        pm.expect(d).to.have.property('severity');",
+                  "        pm.expect(d).to.have.property('count');",
+                  "        pm.expect(d).to.have.property('avg_cvss');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Department Risk Exposure (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/analytics/department-risk",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "department-risk"
+              ]
+            },
+            "description": "Aggregation pipeline: `$group` by department with `$avg` cvss_score, `$sum` count.\n\n**Expects:** `200 OK` with per-department risk data."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Returns department risk data', function () {",
+                  "    const data = pm.response.json().data;",
+                  "    pm.expect(data).to.be.an('array');",
+                  "    data.forEach(d => {",
+                  "        pm.expect(d).to.have.property('department');",
+                  "        pm.expect(d).to.have.property('total_vulnerabilities');",
+                  "        pm.expect(d).to.have.property('risk_score');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Overdue Patches (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/analytics/overdue-patches",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "overdue-patches"
+              ]
+            },
+            "description": "Aggregation pipeline: `$match` past deadline and not patched, `$project` overdue info.\n\n**Expects:** `200 OK`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Overdue items have days_overdue', function () {",
+                  "    pm.response.json().data.forEach(d => {",
+                  "        pm.expect(d).to.have.property('days_overdue');",
+                  "        pm.expect(d.days_overdue).to.be.at.least(0);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Patch Compliance Rate (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/analytics/patch-compliance",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "patch-compliance"
+              ]
+            },
+            "description": "Aggregation pipeline: `$facet` with patched vs total counts, `$project` compliance percentage.\n\n**Expects:** `200 OK` with compliance rate."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Compliance data', function () {",
+                  "    const d = pm.response.json().data;",
+                  "    pm.expect(d).to.have.property('total');",
+                  "    pm.expect(d).to.have.property('patched');",
+                  "    pm.expect(d).to.have.property('unpatched');",
+                  "    pm.expect(d).to.have.property('compliance_rate');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Vulnerability Trends (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/analytics/vulnerability-trends?months=6",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "vulnerability-trends"
+              ],
+              "query": [
+                {
+                  "key": "months",
+                  "value": "6"
+                }
+              ]
+            },
+            "description": "Aggregation pipeline: `$group` by date (`$dateToString`), `$sort` chronological.\n\n**Expects:** `200 OK` with time-series trend data."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Trends have year/month/count', function () {",
+                  "    pm.response.json().data.forEach(d => {",
+                  "        pm.expect(d).to.have.property('year');",
+                  "        pm.expect(d).to.have.property('month');",
+                  "        pm.expect(d).to.have.property('count');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Top Affected Assets (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/analytics/top-affected-assets?limit=5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "top-affected-assets"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Aggregation pipeline: `$group` by asset_name, `$sort` by count descending.\n\n**Expects:** `200 OK` with ranked asset list."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Top assets returned', function () {",
+                  "    const data = pm.response.json().data;",
+                  "    pm.expect(data).to.be.an('array');",
+                  "    pm.expect(data.length).to.be.at.most(5);",
+                  "    data.forEach(d => {",
+                  "        pm.expect(d).to.have.property('asset_name');",
+                  "        pm.expect(d).to.have.property('count');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mean Time to Remediation (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/analytics/mean-time-to-remediation",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "mean-time-to-remediation"
+              ]
+            },
+            "description": "Aggregation pipeline: `$match` resolved items, `$group` with `$avg` using `$dateDiff`.\n\n**Expects:** `200 OK` with mean remediation time."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('MTTR data structure', function () {",
+                  "    pm.response.json().data.forEach(d => {",
+                  "        pm.expect(d).to.have.property('severity');",
+                  "        pm.expect(d).to.have.property('avg_days');",
+                  "        pm.expect(d).to.have.property('count');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Risk Scores (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/analytics/risk-scores?min_score=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "risk-scores"
+              ],
+              "query": [
+                {
+                  "key": "min_score",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Aggregation pipeline: `$match`, `$project` risk_score, `$sort` descending.\n\nRequires admin or analyst role.\n\n**Expects:** `200 OK`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('All scores >= 20', function () {",
+                  "    pm.response.json().data.forEach(d => {",
+                  "        pm.expect(d.risk_score).to.be.at.least(20);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Risk Scores – Guest Forbidden (403)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{guest_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/analytics/risk-scores",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "risk-scores"
+              ]
+            },
+            "description": "Attempt to access risk scores as a guest user.\n\n**Expects:** `403 Forbidden` — RBAC enforcement."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dashboard Summary (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/analytics/summary",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "summary"
+              ]
+            },
+            "description": "Aggregation pipeline: `$facet` combining multiple analytics into a single summary response.\n\n**Expects:** `200 OK` with dashboard data."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Summary has KPIs', function () {",
+                  "    const d = pm.response.json().data;",
+                  "    pm.expect(d).to.have.property('total_vulnerabilities');",
+                  "    pm.expect(d).to.have.property('open_count');",
+                  "    pm.expect(d).to.have.property('in_progress_count');",
+                  "    pm.expect(d).to.have.property('resolved_count');",
+                  "    pm.expect(d).to.have.property('closed_count');",
+                  "    pm.expect(d).to.have.property('critical_count');",
+                  "    pm.expect(d).to.have.property('high_count');",
+                  "    pm.expect(d).to.have.property('avg_cvss');",
+                  "    pm.expect(d).to.have.property('compliance_rate');",
+                  "    pm.expect(d).to.have.property('overdue_count');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Analytics – No Auth (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/analytics/severity-distribution",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "severity-distribution"
+              ]
+            },
+            "description": "Attempt to access an analytics endpoint without authentication.\n\n**Expects:** `401 Unauthorized`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Generate Report – $out (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/analytics/generate-report",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "generate-report"
+              ]
+            },
+            "description": "Aggregation pipeline with `$out` stage: `$group` by department+severity, `$project`, `$sort`, `$out` to `reports` collection.\n\nWrites aggregated results to a persistent MongoDB collection.\n\n**Method:** `POST /analytics/generate-report`\n**Expects:** `201 Created` with generated rows."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () { pm.response.to.have.status(201); });",
+                  "pm.test('Report rows returned', function () {",
+                  "    const data = pm.response.json().data;",
+                  "    pm.expect(data.length).to.be.above(0);",
+                  "});",
+                  "pm.test('Row has department and severity', function () {",
+                  "    const row = pm.response.json().data[0];",
+                  "    pm.expect(row).to.have.property('department');",
+                  "    pm.expect(row).to.have.property('severity');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Reports Collection (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/analytics/reports",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "reports"
+              ]
+            },
+            "description": "Read documents from the `reports` collection that were written by the `$out` aggregation stage.\n\n**Method:** `GET /analytics/reports`\n**Expects:** `200 OK` with report data."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Returns report data', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin Management",
+      "item": [
+        {
+          "name": "List Users – Admin (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users"
+              ]
+            },
+            "description": "List all registered users (admin only).\n\n**Method:** `GET /admin/users`\n**Expects:** `200 OK` with array of users.\n\nAlso extracts the guest user's `_id` and stores it as `test_user_id` for subsequent admin management tests."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response has users array', function () {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.data).to.be.an('array');",
+                  "    pm.expect(res.data.length).to.be.greaterThan(0);",
+                  "});",
+                  "",
+                  "// Extract guest user ID for subsequent admin tests",
+                  "pm.test('Extract guest user ID for admin tests', function () {",
+                  "    const users = pm.response.json().data;",
+                  "    const guest = users.find(u => u.role === 'guest');",
+                  "    pm.expect(guest).to.not.be.undefined;",
+                  "    pm.environment.set('test_user_id', guest._id);",
+                  "    console.log('Set test_user_id to guest:', guest._id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Users – Non-Admin (403)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{analyst_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users"
+              ]
+            },
+            "description": "Attempt to list users as a non-admin user.\n\n**Expects:** `403 Forbidden`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get User Details – Admin (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{test_user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{test_user_id}}"
+              ]
+            },
+            "description": "Fetch a single user's details by ID (admin only).\n\n**Expects:** `200 OK`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('User details returned', function () {",
+                  "    const u = pm.response.json().data;",
+                  "    pm.expect(u).to.have.property('username');",
+                  "    pm.expect(u).to.have.property('email');",
+                  "    pm.expect(u).to.have.property('role');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update User Role – Valid (200)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"analyst\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{test_user_id}}/role",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{test_user_id}}",
+                "role"
+              ]
+            },
+            "description": "Update a user's role (admin only). Changes guest user role to `analyst`.\n\n**Method:** `PUT /admin/users/:id/role`\n**Expects:** `200 OK`.\n\nPost-test script automatically reverts the role back to `guest` to preserve seeded data."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Role updated successfully', function () {",
+                  "    pm.expect(pm.response.json().message).to.include('updated');",
+                  "});",
+                  "",
+                  "// Revert guest user role back to 'guest'",
+                  "const baseUrl = pm.environment.get('base_url');",
+                  "const userId = pm.environment.get('test_user_id');",
+                  "const token = pm.environment.get('admin_token');",
+                  "pm.sendRequest({",
+                  "    url: `${baseUrl}/admin/users/${userId}/role`,",
+                  "    method: 'PUT',",
+                  "    header: { 'Content-Type': 'application/json', 'x-access-token': token },",
+                  "    body: { mode: 'raw', raw: JSON.stringify({ role: 'guest' }) }",
+                  "}, function(err, res) {",
+                  "    if (!err && res.code === 200) {",
+                  "        console.log('Reverted guest role back to guest');",
+                  "    } else {",
+                  "        console.error('Failed to revert guest role:', err || res.text());",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update User Role – Invalid Role (422)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"superadmin\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{test_user_id}}/role",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{test_user_id}}",
+                "role"
+              ]
+            },
+            "description": "Attempt to assign an invalid role value.\n\n**Expects:** `422 Unprocessable Entity`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deactivate User – Admin (200)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{test_user_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{test_user_id}}",
+                "status"
+              ]
+            },
+            "description": "Deactivate a user account (admin only). Targets the guest user.\n\n**Method:** `PUT /admin/users/:id/status`\n**Expects:** `200 OK`.\n\nPost-test script immediately reactivates the guest user to preserve seeded data integrity."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('User deactivated', function () {",
+                  "    const msg = pm.response.json().message; pm.expect(msg.includes('deactivated') || msg.includes('updated')).to.be.true;",
+                  "});",
+                  "",
+                  "// Reactivate guest user immediately to preserve seeded data",
+                  "const baseUrl = pm.environment.get('base_url');",
+                  "const userId = pm.environment.get('test_user_id');",
+                  "const token = pm.environment.get('admin_token');",
+                  "pm.sendRequest({",
+                  "    url: `${baseUrl}/admin/users/${userId}/status`,",
+                  "    method: 'PUT',",
+                  "    header: { 'Content-Type': 'application/json', 'x-access-token': token },",
+                  "    body: { mode: 'raw', raw: JSON.stringify({ is_active: true }) }",
+                  "}, function(err, res) {",
+                  "    if (!err && res.code === 200) {",
+                  "        console.log('Reactivated guest user');",
+                  "    } else {",
+                  "        console.error('Failed to reactivate guest:', err || res.text());",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete User – Non-Admin (403)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{analyst_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{test_user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{test_user_id}}"
+              ]
+            },
+            "description": "Attempt to delete a user as a non-admin (analyst). Should be forbidden.\n\n**Method:** `DELETE /admin/users/:id`\n**Expects:** `403 Forbidden`. No data is modified."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete User – Admin (204)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{disposable_user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{disposable_user_id}}"
+              ]
+            },
+            "description": "Delete a user account (admin only).\n\n**Pre-request:** Creates a disposable user via `POST /auth/register` so that seeded users are never deleted.\n\n**Method:** `DELETE /admin/users/:id`\n**Expects:** `204 No Content`."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Create a disposable user for the delete test (preserves seeded data)",
+                  "const baseUrl = pm.environment.get('base_url');",
+                  "const ts = Date.now();",
+                  "pm.sendRequest({",
+                  "    url: `${baseUrl}/auth/register`,",
+                  "    method: 'POST',",
+                  "    header: { 'Content-Type': 'application/json' },",
+                  "    body: { mode: 'raw', raw: JSON.stringify({",
+                  "        username: `disposable_${ts}`,",
+                  "        email: `disposable_${ts}@vulnguard.test`,",
+                  "        password: 'Dispose@Secure123!'",
+                  "    }) }",
+                  "}, function(err, res) {",
+                  "    if (!err && res.code === 201) {",
+                  "        const userId = res.json().data._id;",
+                  "        pm.environment.set('disposable_user_id', userId);",
+                  "        console.log('Created disposable user:', userId);",
+                  "    } else {",
+                  "        console.error('Failed to create disposable user:', err || res.text());",
+                  "    }",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 204', function () { pm.response.to.have.status(204); });",
+                  "pm.test('No response body', function () {",
+                  "    pm.expect(pm.response.text()).to.have.lengthOf(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Cleanup",
+      "item": [
+        {
+          "name": "Delete Test Vulnerability",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{test_vuln_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{test_vuln_id}}"
+              ]
+            },
+            "description": "Clean up the test vulnerability created during the test run.\n\n**Expects:** `204 No Content` or `404 Not Found` (already cleaned)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Test vulnerability cleaned up', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([204, 404]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Bulk-Created Vulnerabilities",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vulnerabilities/{{bulk_vuln_id_1}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vulnerabilities",
+                "{{bulk_vuln_id_1}}"
+              ]
+            },
+            "description": "Clean up the first vulnerability created by the bulk-create test.\n\n**Method:** `DELETE /vulnerabilities/:id`\n**Expects:** `204 No Content`."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Delete all bulk-created vulnerabilities",
+                  "const baseUrl = pm.environment.get('base_url');",
+                  "const token = pm.environment.get('admin_token');",
+                  "const ids = pm.environment.get('bulk_vuln_ids');",
+                  "",
+                  "if (ids) {",
+                  "    try {",
+                  "        const idList = JSON.parse(ids);",
+                  "        // Skip the first one (that's handled by this request itself)",
+                  "        for (let i = 1; i < idList.length; i++) {",
+                  "            pm.sendRequest({",
+                  "                url: `${baseUrl}/vulnerabilities/${idList[i]}`,",
+                  "                method: 'DELETE',",
+                  "                header: { 'x-access-token': token }",
+                  "            }, function(err, res) {",
+                  "                console.log(`Deleted bulk vuln ${idList[i]}: ${res ? res.code : err}`);",
+                  "            });",
+                  "        }",
+                  "        pm.environment.set('bulk_vuln_id_1', idList[0]);",
+                  "    } catch(e) {",
+                  "        console.error('Failed to parse bulk_vuln_ids:', e);",
+                  "    }",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Bulk vulnerabilities cleaned up', function () {",
+                  "    // Accept 204 (deleted) or 404 (already gone)",
+                  "    pm.expect(pm.response.code).to.be.oneOf([204, 404]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

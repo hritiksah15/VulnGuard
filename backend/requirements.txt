@@ -1,0 +1,25 @@
+# ── Core Framework ───────────────────────────────────────
+Flask==3.1.0                # Web framework (application factory, blueprints, routing, jsonify)
+Werkzeug==3.1.6             # WSGI toolkit — Flask's HTTP layer (request/response handling)
+Jinja2==3.1.6               # Template engine — Flask dependency (error pages, HTML rendering)
+MarkupSafe==3.0.3           # HTML escaping — Jinja2 dependency
+itsdangerous==2.2.0         # Signed data serialisation — Flask session/cookie signing
+click==8.3.1                # CLI toolkit — Flask's command-line interface (`flask run`, etc.)
+blinker==1.9.0              # Signal support — Flask signals (request_started, etc.)
+
+# ── Database (MongoDB) ──────────────────────────────────
+pymongo==4.11.3             # Official MongoDB driver (CRUD, aggregation, $geoNear, insert_many)
+dnspython==2.8.0            # DNS toolkit — required by pymongo for mongodb+srv:// connection strings
+flask-pymongo==2.3.0        # Flask-PyMongo integration (simplified db access via app.extensions)
+
+# ── Authentication & Security ───────────────────────────
+PyJWT==2.10.1               # JSON Web Token encoding/decoding (HS256, jti claim, token expiry)
+bcrypt==4.2.1               # Password hashing with salt rounds (gensalt(12), hashpw, checkpw)
+
+# ── Middleware & Utilities ──────────────────────────────
+flask-cors==5.0.1           # Cross-Origin Resource Sharing — enables CORS headers on all routes
+python-dotenv==1.0.1        # Loads .env file into os.environ (SECRET_KEY, MONGO_URI, etc.)
+packaging==26.0             # Version parsing — pip/setuptools dependency
+
+# ── Production Server ──────────────────────────────────
+gunicorn==23.0.0            # Production WSGI HTTP server (multi-worker process manager)
