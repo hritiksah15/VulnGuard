@@ -1,4 +1,4 @@
-"""VulnGuard – Flask application factory and entry point."""
+"""VulnGuard – Flask application factory."""
 
 import os
 import logging
@@ -6,6 +6,7 @@ from logging.handlers import RotatingFileHandler
 from flask import Flask, jsonify, request, g
 from flask_cors import CORS
 from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 import time
 
 from config import config_by_name
@@ -72,11 +73,26 @@ def create_app(config_name: str | None = None) -> Flask:
     # Initialise CORS
     CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-    # Initialise MongoDB
-    client = MongoClient(app.config['MONGO_URI'])
+    # Initialise MongoDB (short timeout so startup is not blocked)
+    client = MongoClient(
+        app.config['MONGO_URI'],
+        serverSelectionTimeoutMS=5000,
+    )
     db_name = app.config['MONGO_URI'].rsplit('/', 1)[-1].split('?')[0]
     db = client[db_name]
     app.extensions["mongo_db"] = db
+
+    # Test MongoDB connection at startup
+    try:
+        client.admin.command('ping')
+        app.logger.info("MongoDB connected successfully [%s]", app.config['MONGO_URI'])
+    except (ConnectionFailure, ServerSelectionTimeoutError) as e:
+        app.logger.warning(
+            "WARNING: MongoDB is not reachable at %s — %s. "
+            "The server will start, but database operations will fail "
+            "until MongoDB becomes available.",
+            app.config['MONGO_URI'], e,
+        )
 
     # Create indexes (fail gracefully if MongoDB is unreachable at startup)
     try:
@@ -158,8 +174,3 @@ def _create_indexes(db) -> None:
     # Token blacklist index (TTL – auto-delete after 24 h)
     db.blacklist.create_index("token")
     db.blacklist.create_index("blacklisted_at", expireAfterSeconds=86400)
-
-
-if __name__ == '__main__':
-    app = create_app()
-    app.run(host='0.0.0.0', port=5000, debug=True)

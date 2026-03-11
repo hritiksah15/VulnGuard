@@ -10,9 +10,12 @@ Usage:
 import argparse
 import os
 
-from dotenv import load_dotenv
-
-load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+# Optional: load .env file if python-dotenv is installed
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+except ImportError:
+    pass  # python-dotenv not installed – fall back to OS environment variables
 
 from app import create_app
 

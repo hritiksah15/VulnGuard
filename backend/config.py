@@ -1,9 +1,13 @@
 """Application configuration classes for different environments."""
 
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
+# Optional: load .env file if python-dotenv is installed
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv not installed – fall back to OS environment variables
 
 
 class Config:
