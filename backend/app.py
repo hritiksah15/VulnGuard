@@ -1,5 +1,12 @@
-"""VulnGuard – Flask application factory."""
+"""VulnGuard – Flask application factory and development server entry point.
 
+Usage:
+    python app.py                  # Start development server
+    python app.py --port 8000      # Use custom port
+    python app.py --no-debug       # Disable debug / auto-reload
+"""
+
+import argparse
 import os
 import logging
 from logging.handlers import RotatingFileHandler
@@ -8,6 +15,13 @@ from flask_cors import CORS
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 import time
+
+# Optional: load .env file if python-dotenv is installed
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+except ImportError:
+    pass  # python-dotenv not installed – fall back to OS environment variables
 
 from config import config_by_name
 
@@ -64,6 +78,7 @@ def create_app(config_name: str | None = None) -> Flask:
         config_name = os.environ.get('FLASK_ENV', 'development')
 
     app = Flask(__name__)
+    app.url_map.strict_slashes = False
     app.config.from_object(config_by_name[config_name])
 
     # Configure logging
@@ -174,3 +189,15 @@ def _create_indexes(db) -> None:
     # Token blacklist index (TTL – auto-delete after 24 h)
     db.blacklist.create_index("token")
     db.blacklist.create_index("blacklisted_at", expireAfterSeconds=86400)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="VulnGuard Development Server")
+    parser.add_argument('--host', default='0.0.0.0', help='Host to bind (default: 0.0.0.0)')
+    parser.add_argument('--port', type=int, default=5000, help='Port to bind (default: 5000)')
+    parser.add_argument('--no-debug', action='store_true', help='Disable debug mode')
+    args = parser.parse_args()
+
+    app = create_app()
+    print(f"\n🚀  Starting VulnGuard API on http://{args.host}:{args.port}")
+    app.run(host=args.host, port=args.port, debug=not args.no_debug)

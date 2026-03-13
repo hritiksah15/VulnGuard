@@ -73,41 +73,6 @@
       "name": "Environment Setup",
       "item": [
         {
-          "name": "Health Check",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/health",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "health"
-              ]
-            },
-            "description": "Verify the API server is running and responding.\n\n**Expects:** `200 OK` with `status: success`."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status code is 200 OK', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('API is running', function () {",
-                  "    const res = pm.response.json();",
-                  "    pm.expect(res.status).to.equal('success');",
-                  "    pm.expect(res.message).to.include('running');",
-                  "});"
-                ]
-              }
-            }
-          ]
-        },
-        {
           "name": "Login Admin – Get Token",
           "request": {
             "method": "POST",
