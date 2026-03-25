@@ -680,6 +680,60 @@ def create_vulnerabilities(db) -> int:
     return len(vulnerabilities)
 
 
+# CVSS ranges per severity (min, max)
+_CVSS_RANGE = {
+    "Critical":      (9.0, 10.0),
+    "High":          (7.0, 8.9),
+    "Medium":        (4.0, 6.9),
+    "Low":           (0.1, 3.9),
+    "Informational": (0.0, 0.0),
+}
+
+
+def create_reports(db) -> int:
+    """Seed the ``reports`` collection with pre-computed summary rows.
+
+    Each document mirrors what the ``POST /api/v1/analytics/generate-report``
+    aggregation pipeline produces: one row per (department × severity)
+    combination with patch counts and CVSS statistics.
+
+    Args:
+        db: PyMongo database instance.
+
+    Returns:
+        Number of report rows inserted.
+    """
+    db.reports.drop()          # start fresh (matches $out behaviour)
+
+    rows = []
+    for dept in DEPARTMENTS:
+        for severity in SEVERITIES:
+            cvss_min, cvss_max = _CVSS_RANGE[severity]
+            count       = random.randint(2, 20)
+            patched     = random.randint(0, count)
+            unpatched   = count - patched
+
+            if cvss_max == 0.0:
+                avg_cvss = 0.0
+                max_cvss = 0.0
+            else:
+                avg_cvss = round(random.uniform(cvss_min, cvss_max), 2)
+                max_cvss = round(min(avg_cvss + random.uniform(0, cvss_max - avg_cvss), cvss_max), 2)
+
+            rows.append({
+                "department": dept,
+                "severity":   severity,
+                "count":      count,
+                "avg_cvss":   avg_cvss,
+                "max_cvss":   max_cvss,
+                "patched":    patched,
+                "unpatched":  unpatched,
+            })
+
+    db.reports.insert_many(rows)
+    return len(rows)
+
+
 def create_indexes(db) -> None:
     """Create database indexes."""
     db.vulnerabilities.create_index("severity")
@@ -749,6 +803,9 @@ def seed_database():
     print("🔒 Creating vulnerabilities...")
     count = create_vulnerabilities(db)
 
+    print("� Creating reports...")
+    report_count = create_reports(db)
+
     print("📋 Creating indexes...")
     create_indexes(db)
 
@@ -756,6 +813,7 @@ def seed_database():
     print(f"✅ Seeding complete!")
     print(f"   Users: 3 (admin, analyst, guest)")
     print(f"   Vulnerabilities: {count}")
+    print(f"   Reports: {report_count}")
     print(f"\n🔑 Test Credentials:")
     print(f"   Admin:   admin@vulnguard.test / Admin@Secure123!")
     print(f"   Analyst: analyst@vulnguard.test / Analyst@Secure123!")

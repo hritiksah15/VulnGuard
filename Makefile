@@ -19,10 +19,10 @@ install: venv ## Install all dependencies
 # ── Running ──────────────────────────────────────────────────
 
 run: ## Start development server (port 5000)
-	$(BACKEND) ../$(PYTHON) run.py
+	$(BACKEND) ../$(PYTHON) app.py
 
 dev: ## Start development server with auto-reload
-	$(BACKEND) ../$(PYTHON) run.py --port 5000
+	$(BACKEND) ../$(PYTHON) app.py --port 5000
 
 prod: ## Start with gunicorn (4 workers)
 	$(BACKEND) ../venv/bin/gunicorn "app:create_app()" -b 0.0.0.0:5000 -w 4

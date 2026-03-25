@@ -1,0 +1,11 @@
+[{
+	"_id": {
+		"$oid": "69b20ec03ed08eb3953dcc45"
+	},
+	"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNjliMjBlNGU4ZDAyYzhkNDFmYzg5YjMwIiwidXNlcm5hbWUiOiJhZG1pbiIsInJvbGUiOiJhZG1pbiIsImV4cCI6MTc3MzI4MDQ2MywiaWF0IjoxNzczMjc2ODYzLCJqdGkiOiIzMzM0YTY4OC0xOGExLTQ3MjItYjc5OC0yN2YxMTdjN2Y1NWYifQ.1YnhUA2ilmoLE3vXT9dN4kpVWRrJKy10HAaTlV9LMtc",
+	"user_id": "69b20e4e8d02c8d41fc89b30",
+	"blacklisted_at": {
+		"$date": "2026-03-12T00:54:24.483Z"
+	}
+}]
+

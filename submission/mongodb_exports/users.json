@@ -1,0 +1,49 @@
+[{
+	"_id": {
+		"$oid": "69b20e4e8d02c8d41fc89b30"
+	},
+	"username": "admin",
+	"email": "admin@vulnguard.test",
+	"password_hash": "$2b$12$EHAUXSgHZwfaVqVJjBbzP.umdQ7z3mmdpU1u.qRR/dq6SgUkQfKYu",
+	"role": "admin",
+	"is_active": true,
+	"created_at": {
+		"$date": "2025-12-12T00:52:30.344Z"
+	},
+	"last_login": {
+		"$date": "2026-03-12T00:54:24.78Z"
+	}
+},
+{
+	"_id": {
+		"$oid": "69b20e4e8d02c8d41fc89b31"
+	},
+	"username": "analyst",
+	"email": "analyst@vulnguard.test",
+	"password_hash": "$2b$12$gJ1VXrr10KmQfBk5IHF/Xe4KiWb9nKbdlCbyBMeQ2CGCXe9zXVthu",
+	"role": "analyst",
+	"is_active": true,
+	"created_at": {
+		"$date": "2026-01-11T00:52:30.533Z"
+	},
+	"last_login": {
+		"$date": "2026-03-12T00:54:22.54Z"
+	}
+},
+{
+	"_id": {
+		"$oid": "69b20e4e8d02c8d41fc89b32"
+	},
+	"username": "guest",
+	"email": "guest@vulnguard.test",
+	"password_hash": "$2b$12$9LCnoW/287DUPxL.LhAPzeTu2nvZlnchaDGRJEL6YWHumI1e/StMO",
+	"role": "guest",
+	"is_active": true,
+	"created_at": {
+		"$date": "2026-02-10T00:52:30.7Z"
+	},
+	"last_login": {
+		"$date": "2026-03-12T00:54:22.852Z"
+	}
+}]
+

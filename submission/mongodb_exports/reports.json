@@ -1,0 +1,529 @@
+[{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a313"
+	},
+	"count": 3,
+	"max_cvss": 9.5,
+	"patched": 1,
+	"unpatched": 2,
+	"department": "Customer Support",
+	"severity": "Critical",
+	"avg_cvss": 9.23
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a314"
+	},
+	"count": 5,
+	"max_cvss": 8.0,
+	"patched": 1,
+	"unpatched": 4,
+	"department": "Customer Support",
+	"severity": "High",
+	"avg_cvss": 7.48
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a315"
+	},
+	"count": 3,
+	"max_cvss": 3.7,
+	"patched": 1,
+	"unpatched": 2,
+	"department": "Customer Support",
+	"severity": "Low",
+	"avg_cvss": 3.33
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a316"
+	},
+	"count": 7,
+	"max_cvss": 5.8,
+	"patched": 2,
+	"unpatched": 5,
+	"department": "Customer Support",
+	"severity": "Medium",
+	"avg_cvss": 5.19
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a317"
+	},
+	"count": 3,
+	"max_cvss": 9.5,
+	"patched": 0,
+	"unpatched": 3,
+	"department": "Engineering",
+	"severity": "Critical",
+	"avg_cvss": 9.2
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a318"
+	},
+	"count": 2,
+	"max_cvss": 8.1,
+	"patched": 0,
+	"unpatched": 2,
+	"department": "Engineering",
+	"severity": "High",
+	"avg_cvss": 7.7
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a319"
+	},
+	"count": 1,
+	"max_cvss": 0.7,
+	"patched": 1,
+	"unpatched": 0,
+	"department": "Engineering",
+	"severity": "Informational",
+	"avg_cvss": 0.7
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a31a"
+	},
+	"count": 1,
+	"max_cvss": 3.2,
+	"patched": 0,
+	"unpatched": 1,
+	"department": "Engineering",
+	"severity": "Low",
+	"avg_cvss": 3.2
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a31b"
+	},
+	"count": 1,
+	"max_cvss": 5.5,
+	"patched": 0,
+	"unpatched": 1,
+	"department": "Engineering",
+	"severity": "Medium",
+	"avg_cvss": 5.5
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a31c"
+	},
+	"count": 2,
+	"max_cvss": 9.5,
+	"patched": 0,
+	"unpatched": 2,
+	"department": "Finance",
+	"severity": "Critical",
+	"avg_cvss": 9.3
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a31d"
+	},
+	"count": 3,
+	"max_cvss": 8.1,
+	"patched": 0,
+	"unpatched": 3,
+	"department": "Finance",
+	"severity": "High",
+	"avg_cvss": 7.4
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a31e"
+	},
+	"count": 4,
+	"max_cvss": 2.0,
+	"patched": 2,
+	"unpatched": 2,
+	"department": "Finance",
+	"severity": "Low",
+	"avg_cvss": 1.65
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a31f"
+	},
+	"count": 3,
+	"max_cvss": 6.0,
+	"patched": 0,
+	"unpatched": 3,
+	"department": "Finance",
+	"severity": "Medium",
+	"avg_cvss": 5.23
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a320"
+	},
+	"count": 2,
+	"max_cvss": 9.8,
+	"patched": 1,
+	"unpatched": 1,
+	"department": "HR",
+	"severity": "Critical",
+	"avg_cvss": 9.35
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a321"
+	},
+	"count": 2,
+	"max_cvss": 7.8,
+	"patched": 2,
+	"unpatched": 0,
+	"department": "HR",
+	"severity": "High",
+	"avg_cvss": 7.4
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a322"
+	},
+	"count": 1,
+	"max_cvss": 0.5,
+	"patched": 0,
+	"unpatched": 1,
+	"department": "HR",
+	"severity": "Informational",
+	"avg_cvss": 0.5
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a323"
+	},
+	"count": 3,
+	"max_cvss": 2.0,
+	"patched": 1,
+	"unpatched": 2,
+	"department": "HR",
+	"severity": "Low",
+	"avg_cvss": 1.9
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a324"
+	},
+	"count": 3,
+	"max_cvss": 5.3,
+	"patched": 3,
+	"unpatched": 0,
+	"department": "HR",
+	"severity": "Medium",
+	"avg_cvss": 4.63
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a325"
+	},
+	"count": 4,
+	"max_cvss": 9.8,
+	"patched": 2,
+	"unpatched": 2,
+	"department": "IT",
+	"severity": "Critical",
+	"avg_cvss": 9.43
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a326"
+	},
+	"count": 4,
+	"max_cvss": 7.9,
+	"patched": 2,
+	"unpatched": 2,
+	"department": "IT",
+	"severity": "High",
+	"avg_cvss": 7.17
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a327"
+	},
+	"count": 2,
+	"max_cvss": 0.7,
+	"patched": 1,
+	"unpatched": 1,
+	"department": "IT",
+	"severity": "Informational",
+	"avg_cvss": 0.65
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a328"
+	},
+	"count": 2,
+	"max_cvss": 3.2,
+	"patched": 1,
+	"unpatched": 1,
+	"department": "IT",
+	"severity": "Low",
+	"avg_cvss": 2.5
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a329"
+	},
+	"count": 2,
+	"max_cvss": 5.1,
+	"patched": 0,
+	"unpatched": 2,
+	"department": "IT",
+	"severity": "Medium",
+	"avg_cvss": 4.45
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a32a"
+	},
+	"count": 3,
+	"max_cvss": 9.8,
+	"patched": 3,
+	"unpatched": 0,
+	"department": "Legal",
+	"severity": "Critical",
+	"avg_cvss": 9.4
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a32b"
+	},
+	"count": 3,
+	"max_cvss": 8.1,
+	"patched": 1,
+	"unpatched": 2,
+	"department": "Legal",
+	"severity": "High",
+	"avg_cvss": 7.5
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a32c"
+	},
+	"count": 2,
+	"max_cvss": 0.9,
+	"patched": 0,
+	"unpatched": 2,
+	"department": "Legal",
+	"severity": "Informational",
+	"avg_cvss": 0.65
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a32d"
+	},
+	"count": 4,
+	"max_cvss": 5.7,
+	"patched": 3,
+	"unpatched": 1,
+	"department": "Legal",
+	"severity": "Medium",
+	"avg_cvss": 4.65
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a32e"
+	},
+	"count": 4,
+	"max_cvss": 9.9,
+	"patched": 1,
+	"unpatched": 3,
+	"department": "Marketing",
+	"severity": "Critical",
+	"avg_cvss": 9.55
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a32f"
+	},
+	"count": 2,
+	"max_cvss": 8.2,
+	"patched": 1,
+	"unpatched": 1,
+	"department": "Marketing",
+	"severity": "High",
+	"avg_cvss": 7.5
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a330"
+	},
+	"count": 3,
+	"max_cvss": 0.5,
+	"patched": 0,
+	"unpatched": 3,
+	"department": "Marketing",
+	"severity": "Informational",
+	"avg_cvss": 0.43
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a331"
+	},
+	"count": 2,
+	"max_cvss": 5.5,
+	"patched": 2,
+	"unpatched": 0,
+	"department": "Marketing",
+	"severity": "Medium",
+	"avg_cvss": 5.0
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a332"
+	},
+	"count": 1,
+	"max_cvss": 9.1,
+	"patched": 0,
+	"unpatched": 1,
+	"department": "Operations",
+	"severity": "Critical",
+	"avg_cvss": 9.1
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a333"
+	},
+	"count": 1,
+	"max_cvss": 7.5,
+	"patched": 0,
+	"unpatched": 1,
+	"department": "Operations",
+	"severity": "High",
+	"avg_cvss": 7.5
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a334"
+	},
+	"count": 1,
+	"max_cvss": 5.5,
+	"patched": 1,
+	"unpatched": 0,
+	"department": "Operations",
+	"severity": "Medium",
+	"avg_cvss": 5.5
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a335"
+	},
+	"count": 1,
+	"max_cvss": 9.0,
+	"patched": 0,
+	"unpatched": 1,
+	"department": "Research",
+	"severity": "Critical",
+	"avg_cvss": 9.0
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a336"
+	},
+	"count": 3,
+	"max_cvss": 7.6,
+	"patched": 2,
+	"unpatched": 1,
+	"department": "Research",
+	"severity": "High",
+	"avg_cvss": 7.33
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a337"
+	},
+	"count": 4,
+	"max_cvss": 0.9,
+	"patched": 1,
+	"unpatched": 3,
+	"department": "Research",
+	"severity": "Informational",
+	"avg_cvss": 0.47
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a338"
+	},
+	"count": 2,
+	"max_cvss": 1.7,
+	"patched": 1,
+	"unpatched": 1,
+	"department": "Research",
+	"severity": "Low",
+	"avg_cvss": 1.6
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a339"
+	},
+	"count": 1,
+	"max_cvss": 5.8,
+	"patched": 0,
+	"unpatched": 1,
+	"department": "Research",
+	"severity": "Medium",
+	"avg_cvss": 5.8
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a33a"
+	},
+	"count": 3,
+	"max_cvss": 9.9,
+	"patched": 0,
+	"unpatched": 3,
+	"department": "Security",
+	"severity": "Critical",
+	"avg_cvss": 9.57
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a33b"
+	},
+	"count": 2,
+	"max_cvss": 7.9,
+	"patched": 0,
+	"unpatched": 2,
+	"department": "Security",
+	"severity": "High",
+	"avg_cvss": 7.3
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a33c"
+	},
+	"count": 1,
+	"max_cvss": 0.5,
+	"patched": 0,
+	"unpatched": 1,
+	"department": "Security",
+	"severity": "Informational",
+	"avg_cvss": 0.5
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a33d"
+	},
+	"count": 3,
+	"max_cvss": 3.0,
+	"patched": 1,
+	"unpatched": 2,
+	"department": "Security",
+	"severity": "Low",
+	"avg_cvss": 2.7
+},
+{
+	"_id": {
+		"$oid": "69b20ec725fe23d3b0f9a33e"
+	},
+	"count": 3,
+	"max_cvss": 5.9,
+	"patched": 1,
+	"unpatched": 2,
+	"department": "Security",
+	"severity": "Medium",
+	"avg_cvss": 4.83
+}]
+
