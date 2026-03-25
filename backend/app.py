@@ -98,8 +98,10 @@ def create_app(config_name: str | None = None) -> Flask:
     app.extensions["mongo_db"] = db
 
     # Test MongoDB connection at startup
+    mongo_reachable = False
     try:
         client.admin.command('ping')
+        mongo_reachable = True
         app.logger.info("MongoDB connected successfully [%s]", app.config['MONGO_URI'])
     except (ConnectionFailure, ServerSelectionTimeoutError) as e:
         app.logger.warning(
@@ -109,11 +111,12 @@ def create_app(config_name: str | None = None) -> Flask:
             app.config['MONGO_URI'], e,
         )
 
-    # Create indexes (fail gracefully if MongoDB is unreachable at startup)
-    try:
-        _create_indexes(db)
-    except Exception as e:
-        app.logger.warning("Could not create indexes at startup: %s", e)
+    # Create indexes only when MongoDB is reachable
+    if mongo_reachable:
+        try:
+            _create_indexes(db)
+        except Exception as e:
+            app.logger.warning("Could not create indexes at startup: %s", e)
 
     # Register error handlers
     from middleware.error_handler import register_error_handlers

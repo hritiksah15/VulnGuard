@@ -4,7 +4,7 @@ Werkzeug==3.1.6             # WSGI toolkit — Flask's HTTP layer (request/respo
 Jinja2==3.1.6               # Template engine — Flask dependency (error pages, HTML rendering)
 MarkupSafe==3.0.3           # HTML escaping — Jinja2 dependency
 itsdangerous==2.2.0         # Signed data serialisation — Flask session/cookie signing
-click==8.3.1                # CLI toolkit — Flask's command-line interface (`flask run`, etc.)
+click==8.1.8                # CLI toolkit — Flask's command-line interface (`flask run`, etc.)
 blinker==1.9.0              # Signal support — Flask signals (request_started, etc.)
 
 # ── Database (MongoDB) ──────────────────────────────────
